@@ -3,6 +3,7 @@
 #include <vector>
 #include <stack>
 #include "UcodeCollection.h"
+#include "DoubleBufferPrinter.h"
 
 class Logger {
 public:
@@ -36,4 +37,6 @@ private:
     vector<Instruction> instructions_;
     vector<UCode> u_codes_;
     vector<Label> labels_;
+
+    DoubleBufferPrinter Printer;
 };

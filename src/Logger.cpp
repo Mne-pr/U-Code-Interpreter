@@ -15,6 +15,8 @@ Logger::Logger(string path, int *breakpoints, int breakpoint_num) : breakpoints_
     this->execution_date = to_string(local_time.tm_year + 1900) + "-" + to_string(local_time.tm_mon + 1)
         + "-" + to_string(local_time.tm_mday) + " " + to_string(local_time.tm_hour)
         + ":" + to_string(local_time.tm_min) + ":" + to_string(local_time.tm_sec);
+    //
+    Printer.ScreenInit();
 }
 
 void Logger::setLength(int length) { this->length_ = length; }
@@ -34,18 +36,18 @@ void Logger::initWindowBuffer() {
     char breakpoint_buffer[10];
     char object_buffer[1024];
     char line_buffer[10000];
-    window_buffer.push_back("┌──────┬────────────────┬───────────┬────────┬──────────┬──────────┬─────┐");
-    window_buffer.push_back("│ line │     object     │   Lable   │ OPCode │ Operand1 │ Operand2 │ now │");
+    window_buffer.push_back("┌───────┬────────────────┬───────────┬────────┬──────────┬──────────┬─────┐");
+    window_buffer.push_back("│ line  │     object     │   Lable   │ OPCode │ Operand1 │ Operand2 │ now │");
     
     for (int line = 0; line < instructions_.size(); line++) {
-        strcpy(breakpoint_buffer, " ");
+        strcpy(breakpoint_buffer, "  ");
         for (int i = 0; i < breakpoint_num_; i++) {
             if (breakpoints_[i] == line + 1) {
                 strcpy(breakpoint_buffer, "●");
                 break;
             }
         }
-        window_buffer.push_back("├──────┼────────────────┼───────────┼────────┼──────────┼──────────┼─────┤");
+        window_buffer.push_back("├───────┼────────────────┼───────────┼────────┼──────────┼──────────┼─────┤");
         if (instructions_[line].operand1 == -1) {
             sprintf(object_buffer, "%d", instructions_[line].opcode);
         }
@@ -58,14 +60,18 @@ void Logger::initWindowBuffer() {
         sprintf(line_buffer, "│%s%4d │ (%-13s)│ %-10s│ %-7s│ %-9s│ %-9s│", breakpoint_buffer, line + 1, object_buffer, u_codes_[line].label.c_str(), u_codes_[line].opcode.c_str(), u_codes_[line].operand1.c_str(), u_codes_[line].operand2.c_str());
         window_buffer.push_back(line_buffer);
     }
-    window_buffer.push_back("└──────┴────────────────┴───────────┴────────┴──────────┴──────────┴─────┘");
+    window_buffer.push_back("└───────┴────────────────┴───────────┴────────┴──────────┴──────────┴─────┘");
 }
 
 void Logger::updateWindow(int idx, int program_counter, stack<int> stack_area, stack<int> gp_register) {
-    system("cls");
-    cout << "─ console ────────────────────────────────────────────────────────────────" << endl;
-    cout << out_buffer << endl;
-    cout << "──────────────────────────────────────────────────────────────────────────" << endl;
+    //system("cls");
+    Printer.ScreenClear();
+    Printer.SetPrintClear();
+
+    Printer.ScreenRender("─ console ────────────────────────────────────────────────────────────────");
+    Printer.ScreenRender(out_buffer.c_str());
+    Printer.ScreenRender("──────────────────────────────────────────────────────────────────────────");
+
     if (idx != -1) {
 
         char pc_buffer[1024];
@@ -83,48 +89,63 @@ void Logger::updateWindow(int idx, int program_counter, stack<int> stack_area, s
             strcat(gp_buffer, " ");
         }
 
-        cout << "┌──────┬──────┐";
-        cout << "┌────────────┬";
-        for (int i = 0; i < strlen(sa_buffer); i++) { cout << "─"; }
-        cout << "┐"; 
-        cout << "┌─────────────┬";
-        for (int i = 0; i < strlen(gp_buffer); i++) { cout << "─"; }
-        cout << "┐" << endl;
+        Printer.AddTemp("┌──────┬──────┐┌────────────┬"); for (int i = 0; i < strlen(sa_buffer); i++) { Printer.AddTemp("─"); }
+        Printer.AddTemp("┐┌─────────────┬"); for (int i = 0; i < strlen(gp_buffer); i++) { Printer.AddTemp("─"); } Printer.AddTemp("┐");
+        Printer.ScreenRender();
 
+        Printer.AddTemp("│  PC  │"); Printer.AddTemp(pc_buffer);
+        Printer.AddTemp("││ Stack Area │"); Printer.AddTemp(sa_buffer);
+        Printer.AddTemp("││ GP Register │"); Printer.AddTemp(gp_buffer); Printer.AddTemp("│");
+        Printer.ScreenRender();
 
-        cout << "│  PC  │"<< pc_buffer << "│" << "│ Stack Area │"<< sa_buffer <<"│" << "│ GP Register │" << gp_buffer << "│" << endl;
+        Printer.AddTemp("└──────┴──────┘└────────────┴"); for (int i = 0; i < strlen(sa_buffer); i++) { Printer.AddTemp("─"); }
+        Printer.AddTemp("┘└─────────────┴"); for (int i = 0; i < strlen(gp_buffer); i++) { Printer.AddTemp("─"); } Printer.AddTemp("┘");
+        Printer.ScreenRender();
 
-
-        cout << "└──────┴──────┘";
-        cout << "└────────────┴";
-        for (int i = 0; i < strlen(sa_buffer); i++) { cout << "─"; }
-        cout << "┘";
-        cout << "└─────────────┴";
-        for (int i = 0; i < strlen(gp_buffer); i++) { cout << "─"; }
-        cout << "┘" << endl;
     }
+
     for (int line = 0; line < window_buffer.size(); line++) {
-        cout << window_buffer[line];
-        if (line != 1 && line % 2 == 1) {
+        if(line <= 2) Printer.ScreenRender(window_buffer[line].c_str());
+        if (line > 2 && line % 2 == 1) {
+            Printer.AddTemp(window_buffer[line].c_str());
             if (line == 3+idx*2) {
-                cout << "  <  │" << endl;
+                Printer.AddTemp("  <  │");
             } else {
-                cout << "     │" << endl;
+                Printer.AddTemp("     │");
             }
+            Printer.ScreenRender();
         }
-        else {
-            cout << endl;
+        if (line == window_buffer.size() - 1) Printer.ScreenRender(window_buffer[line].c_str());
+    }
+
+    if (idx == -1) {
+        Sleep(300);
+        Printer.ScreenRender("시뮬레이션 종료. 엔터키로 다음단계 진행");
+        Printer.ScreenSwitch();
+        while (1) {
+            int key = _getch();
+            if (key == 13) { Printer.ScreenRelease(); return; }
         }
     }
+
     if (idx != -1) {
         for (int i = 0; i < breakpoint_num_; i++) {
             if (breakpoints_[i] == program_counter-1) {
-                system("pause");
+                //system("pause"); 왜그런지 모르겠지만 이거때문에 진행불가능
+                Sleep(300);
+                Printer.ScreenRender("브레이크포인트. 엔터키로 진행");
+                Printer.ScreenSwitch();
+                while (1) {
+                    int key = _getch();
+                    if (key == 13) break;
+                }
                 break;
             }
         }
-        Sleep(100);
+        Sleep(300);
     }
+
+    Printer.ScreenSwitch();
 }
 
 void Logger::updateOutBuffer(string out) {
